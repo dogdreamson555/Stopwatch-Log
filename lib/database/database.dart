@@ -85,7 +85,10 @@ class AppDatabase extends _$AppDatabase {
 
   /// 删除某个会话（级联删除其打点）
   Future<void> deleteSession(String id) {
-    return (delete(sessions)..where((t) => t.id.equals(id))).go();
+    return transaction(() async {
+      await (delete(points)..where((t) => t.sessionId.equals(id))).go();
+      await (delete(sessions)..where((t) => t.id.equals(id))).go();
+    });
   }
 
   // ---- 打点 CRUD ----
