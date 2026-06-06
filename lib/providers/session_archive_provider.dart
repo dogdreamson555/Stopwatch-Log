@@ -9,7 +9,11 @@ import '../models/timer_session.dart';
 // 数据库 Provider（单例）
 // ============================================================
 
-final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
+final databaseProvider = Provider<AppDatabase>((ref) {
+  final db = AppDatabase();
+  ref.onDispose(db.close);
+  return db;
+});
 
 // ============================================================
 // 会话归档 Notifier（AsyncNotifier 支持异步初始化）
