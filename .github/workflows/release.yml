@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Resolve release tag
-        shell: powershell
+        shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $tag = "${{ inputs.tag }}"
@@ -58,7 +58,7 @@ jobs:
         run: flutter build windows --release
 
       - name: Package Windows build
-        shell: powershell
+        shell: pwsh
         run: |
           $releaseDir = "build/windows/x64/runner/Release"
           $zip = "Stopwatch-Log-$env:RELEASE_TAG-windows-x64.zip"
@@ -79,7 +79,7 @@ jobs:
           echo "ZIP_NAME=$zip" >> $env:GITHUB_ENV
 
       - name: Publish GitHub Release
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -89,7 +89,7 @@ jobs:
           $notes = @"
           Windows x64 版本。
 
-          下载 `$asset` 后解压，运行 `stopwatch_log.exe` 即可使用。
+          下载 $asset 后解压，运行 stopwatch_log.exe 即可使用。
           请保持 exe、data 文件夹和 DLL 文件在同一目录。
           "@
 
@@ -101,6 +101,7 @@ jobs:
           $releaseExists = @(($releaseTagsJson | ConvertFrom-Json) | Where-Object { $_.tagName -eq $tag }).Count -gt 0
 
           if ($releaseExists) {
+            gh release edit $tag --title $title --notes $notes
             gh release upload $tag $asset --clobber
           } else {
             gh release create $tag $asset --title $title --notes $notes
