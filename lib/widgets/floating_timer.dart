@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../providers/session_archive_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/ui_provider.dart';
 import '../services/window_service.dart';
@@ -72,12 +71,7 @@ class FloatingTimer extends ConsumerWidget {
                             onResume: () =>
                                 ref.read(timerProvider.notifier).resume(),
                             onStop: () async {
-                              final session = ref
-                                  .read(timerProvider.notifier)
-                                  .stop();
-                              await ref
-                                  .read(sessionArchiveProvider.notifier)
-                                  .addSession(session);
+                              await ref.read(timerProvider.notifier).stop();
                               await _exitFloating(ref);
                             },
                           ),

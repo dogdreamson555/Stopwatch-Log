@@ -111,6 +111,7 @@ class TimerNotifier extends Notifier<TimerState> {
   TimerState _latestState = const TimerState();
   int _persistVersion = 0;
   Future<void> _pendingPersist = Future.value();
+  Future<TimerSession>? _pendingStop;
 
   Duration get _currentElapsed => _baseElapsed + _stopwatch.elapsed;
 
@@ -171,8 +172,21 @@ class TimerNotifier extends Notifier<TimerState> {
     unawaited(_persistDraft(force: true));
   }
 
-  /// 结束计时，返回本次会话
-  TimerSession stop() {
+  /// 结束计时并归档，归档成功后才清除当前状态。
+  Future<TimerSession> stop() {
+    final pending = _pendingStop;
+    if (pending != null) return pending;
+
+    final stopFuture = _stopAndArchive();
+    _pendingStop = stopFuture;
+    return stopFuture.whenComplete(() {
+      if (_pendingStop == stopFuture) {
+        _pendingStop = null;
+      }
+    });
+  }
+
+  Future<TimerSession> _stopAndArchive() async {
     _stopwatch.stop();
     _ticker?.cancel();
     final elapsed = _currentElapsed;
@@ -182,11 +196,15 @@ class TimerNotifier extends Notifier<TimerState> {
       totalElapsed: elapsed,
       points: state.points,
     );
-    // 回到 idle
+    state = state.copyWith(status: TimerStatus.paused, elapsed: elapsed);
+    await _persistDraft(force: true);
+
+    await ref.read(sessionArchiveProvider.notifier).addSession(session);
+    await _clearDraft();
+
     _baseElapsed = Duration.zero;
     _stopwatch.reset();
     state = const TimerState();
-    unawaited(_clearDraft());
     return session;
   }
 

@@ -26,30 +26,32 @@ class SessionArchiveNotifier extends AsyncNotifier<List<TimerSession>> {
 
   /// 添加一个新会话到归档并持久化
   Future<void> addSession(TimerSession session) async {
-    // 先写数据库
-    await _db.insertSession(
-      SessionsCompanion(
-        id: drift.Value(session.id),
-        date: drift.Value(session.date),
-        totalElapsedMs: drift.Value(session.totalElapsed.inMilliseconds),
-        summary: drift.Value(session.summary),
-      ),
-    );
-    if (session.points.isNotEmpty) {
-      await _db.insertPoints(
-        session.points
-            .map(
-              (p) => PointsCompanion(
-                id: drift.Value(p.id),
-                sessionId: drift.Value(session.id),
-                elapsedAtMs: drift.Value(p.elapsedAt.inMilliseconds),
-                createdAt: drift.Value(p.createdAt),
-                note: drift.Value(p.note),
-              ),
-            )
-            .toList(),
+    await _db.transaction(() async {
+      await _db.insertSession(
+        SessionsCompanion(
+          id: drift.Value(session.id),
+          date: drift.Value(session.date),
+          totalElapsedMs: drift.Value(session.totalElapsed.inMilliseconds),
+          summary: drift.Value(session.summary),
+        ),
       );
-    }
+      if (session.points.isNotEmpty) {
+        await _db.insertPoints(
+          session.points
+              .map(
+                (p) => PointsCompanion(
+                  id: drift.Value(p.id),
+                  sessionId: drift.Value(session.id),
+                  elapsedAtMs: drift.Value(p.elapsedAt.inMilliseconds),
+                  createdAt: drift.Value(p.createdAt),
+                  note: drift.Value(p.note),
+                ),
+              )
+              .toList(),
+        );
+      }
+    });
+
     // 更新内存状态
     state = AsyncData([session, ...state.value ?? []]);
   }
