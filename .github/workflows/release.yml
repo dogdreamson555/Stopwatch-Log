@@ -4,17 +4,36 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, for example v1.0.0'
+        required: true
+        default: 'v1.0.0'
 
 permissions:
   contents: write
 
 jobs:
   build-windows:
+    name: Build Windows release package
     runs-on: windows-latest
 
     steps:
+      - name: Resolve release tag
+        shell: powershell
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $tag = "${{ inputs.tag }}"
+          } else {
+            $tag = "${{ github.ref_name }}"
+          }
+          echo "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -41,9 +60,22 @@ jobs:
       - name: Package Windows build
         shell: powershell
         run: |
-          $tag = "${{ github.ref_name }}"
-          $zip = "Stopwatch-Log-windows-x64-$tag.zip"
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath $zip
+          $releaseDir = "build/windows/x64/runner/Release"
+          $zip = "Stopwatch-Log-$env:RELEASE_TAG-windows-x64.zip"
+          $guide = @"
+          Stopwatch Log $env:RELEASE_TAG
+
+          使用方法：
+          1. 解压整个压缩包。
+          2. 运行 stopwatch_log.exe。
+          3. 不要单独移动 exe；data 文件夹和 DLL 文件需要和 exe 保持在同一目录。
+
+          数据默认保存在：
+          C:\Users\<用户名>\Documents\Stopwatch Log\stopwatch_log.db
+          "@
+
+          $guide | Out-File -FilePath "$releaseDir/README.txt" -Encoding utf8
+          Compress-Archive -Path "$releaseDir/*" -DestinationPath $zip -Force
           echo "ZIP_NAME=$zip" >> $env:GITHUB_ENV
 
       - name: Publish GitHub Release
@@ -51,6 +83,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" "$env:ZIP_NAME" `
-            --title "Stopwatch Log ${{ github.ref_name }}" `
-            --notes "Windows x64 release"
+          $tag = "$env:RELEASE_TAG"
+          $asset = "$env:ZIP_NAME"
+          $title = "Stopwatch Log $tag"
+          $notes = @"
+          Windows x64 版本。
+
+          下载 `$asset` 后解压，运行 `stopwatch_log.exe` 即可使用。
+          请保持 exe、data 文件夹和 DLL 文件在同一目录。
+          "@
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $asset --clobber
+          } else {
+            gh release create $tag $asset --title $title --notes $notes
+          }
