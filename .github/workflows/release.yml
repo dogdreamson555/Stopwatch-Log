@@ -93,8 +93,12 @@ jobs:
           请保持 exe、data 文件夹和 DLL 文件在同一目录。
           "@
 
-          gh release view $tag --json tagName 1>$null 2>$null
-          $releaseExists = $LASTEXITCODE -eq 0
+          $releaseTagsJson = gh release list --limit 1000 --json tagName
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          $releaseExists = @(($releaseTagsJson | ConvertFrom-Json) | Where-Object { $_.tagName -eq $tag }).Count -gt 0
 
           if ($releaseExists) {
             gh release upload $tag $asset --clobber
