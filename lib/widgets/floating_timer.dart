@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/ui_provider.dart';
 import '../services/window_service.dart';
-import '../theme/app_typography.dart';
+import '../theme/stopwatch_font_preset.dart';
 import 'window_close_button.dart';
 
 /// 悬浮模式下的紧凑计时器 UI
@@ -22,6 +23,7 @@ class FloatingTimer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timerState = ref.watch(timerProvider);
+    final fontPreset = ref.watch(stopwatchFontPresetProvider);
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -57,6 +59,7 @@ class FloatingTimer extends ConsumerWidget {
                             elapsed: timerState.elapsed,
                             showSeconds: timerState.showSeconds,
                             scale: scale,
+                            fontPreset: fontPreset,
                           ),
                           SizedBox(height: 10 * scale),
                           _FloatingActions(
@@ -147,11 +150,13 @@ class _FloatingTimeDisplay extends StatelessWidget {
   final Duration elapsed;
   final bool showSeconds;
   final double scale;
+  final StopwatchFontPreset fontPreset;
 
   const _FloatingTimeDisplay({
     required this.elapsed,
     required this.showSeconds,
     required this.scale,
+    required this.fontPreset,
   });
 
   @override
@@ -180,9 +185,15 @@ class _FloatingTimeDisplay extends StatelessWidget {
             width: blockWidth,
             fontSize: fontSize,
             scale: scale,
+            fontPreset: fontPreset,
           ),
           if (i < parts.length - 1)
-            _FloatingSeparator(height: fontSize, scale: timeScale, cs: cs),
+            _FloatingSeparator(
+              height: fontSize,
+              scale: timeScale,
+              cs: cs,
+              fontPreset: fontPreset,
+            ),
         ],
       ],
     );
@@ -195,6 +206,7 @@ class _FloatingTimeBlock extends StatelessWidget {
   final double width;
   final double fontSize;
   final double scale;
+  final StopwatchFontPreset fontPreset;
 
   const _FloatingTimeBlock({
     required this.value,
@@ -202,6 +214,7 @@ class _FloatingTimeBlock extends StatelessWidget {
     required this.width,
     required this.fontSize,
     required this.scale,
+    required this.fontPreset,
   });
 
   @override
@@ -213,14 +226,20 @@ class _FloatingTimeBlock extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            value,
-            maxLines: 1,
-            style: AppTypography.display(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface.withValues(alpha: 0.74),
-              height: 1,
+          SizedBox(
+            height: fontSize,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: fontPreset.textStyle(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface.withValues(alpha: 0.74),
+                  height: 1,
+                ),
+              ),
             ),
           ),
           SizedBox(height: 6 * scale),
@@ -243,11 +262,13 @@ class _FloatingSeparator extends StatelessWidget {
   final double height;
   final double scale;
   final ColorScheme cs;
+  final StopwatchFontPreset fontPreset;
 
   const _FloatingSeparator({
     required this.height,
     required this.scale,
     required this.cs,
+    required this.fontPreset,
   });
 
   @override
@@ -255,35 +276,20 @@ class _FloatingSeparator extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 2 * scale),
       child: SizedBox(
-        width: 8 * scale,
+        width: 10 * scale,
         height: height,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _SeparatorDot(scale: scale, cs: cs),
-            SizedBox(height: height * 0.16),
-            _SeparatorDot(scale: scale, cs: cs),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            ':',
+            style: fontPreset.textStyle(
+              fontSize: height,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface.withValues(alpha: 0.52),
+              height: 1,
+            ),
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _SeparatorDot extends StatelessWidget {
-  final double scale;
-  final ColorScheme cs;
-
-  const _SeparatorDot({required this.scale, required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 4.5 * scale,
-      height: 4.5 * scale,
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.44),
-        shape: BoxShape.circle,
       ),
     );
   }

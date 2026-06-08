@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
-import '../theme/app_typography.dart';
+import '../theme/stopwatch_font_preset.dart';
 
 /// 时间显示组件：HH : MM : SS 格式，带中文标注
 class TimeDisplay extends ConsumerWidget {
@@ -15,6 +16,7 @@ class TimeDisplay extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final elapsed = ref.watch(timerProvider.select((s) => s.elapsed));
     final showSeconds = ref.watch(timerProvider.select((s) => s.showSeconds));
+    final fontPreset = ref.watch(stopwatchFontPresetProvider);
 
     final hours = elapsed.inHours;
     final minutes = elapsed.inMinutes.remainder(60);
@@ -26,21 +28,29 @@ class TimeDisplay extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTimeBlock(hours.toString().padLeft(2, '0'), '小时', cs, scale),
-            _Colon(cs: cs, scale: scale),
+            _buildTimeBlock(
+              hours.toString().padLeft(2, '0'),
+              '小时',
+              cs,
+              scale,
+              fontPreset,
+            ),
+            _Colon(cs: cs, scale: scale, fontPreset: fontPreset),
             _buildTimeBlock(
               minutes.toString().padLeft(2, '0'),
               '分钟',
               cs,
               scale,
+              fontPreset,
             ),
             if (showSeconds) ...[
-              _Colon(cs: cs, scale: scale),
+              _Colon(cs: cs, scale: scale, fontPreset: fontPreset),
               _buildTimeBlock(
                 seconds.toString().padLeft(2, '0'),
                 '秒',
                 cs,
                 scale,
+                fontPreset,
               ),
             ],
           ],
@@ -54,6 +64,7 @@ class TimeDisplay extends ConsumerWidget {
     String label,
     ColorScheme cs,
     double scale,
+    StopwatchFontPreset fontPreset,
   ) {
     final labelSlotHeight = 25.0 * scale;
 
@@ -61,7 +72,7 @@ class TimeDisplay extends ConsumerWidget {
       children: [
         Text(
           value,
-          style: AppTypography.display(
+          style: fontPreset.textStyle(
             fontSize: 56 * scale,
             fontWeight: FontWeight.w400,
             color: cs.onSurface,
@@ -87,43 +98,33 @@ class TimeDisplay extends ConsumerWidget {
 class _Colon extends StatelessWidget {
   final ColorScheme cs;
   final double scale;
+  final StopwatchFontPreset fontPreset;
 
-  const _Colon({required this.cs, required this.scale});
+  const _Colon({
+    required this.cs,
+    required this.scale,
+    required this.fontPreset,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 5 * scale),
       child: SizedBox(
-        width: 8 * scale,
+        width: 18 * scale,
         height: 56 * scale,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _SeparatorDot(cs: cs, scale: scale),
-            SizedBox(height: 13 * scale),
-            _SeparatorDot(cs: cs, scale: scale),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            ':',
+            style: fontPreset.textStyle(
+              fontSize: 56 * scale,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface.withValues(alpha: 0.72),
+              height: 1,
+            ),
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _SeparatorDot extends StatelessWidget {
-  final ColorScheme cs;
-  final double scale;
-
-  const _SeparatorDot({required this.cs, required this.scale});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 7 * scale,
-      height: 7 * scale,
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.7),
-        shape: BoxShape.circle,
       ),
     );
   }

@@ -53,12 +53,8 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
     beforeOpen: (_) async {
-      await customStatement('''
-        CREATE TABLE IF NOT EXISTS current_timer_state (
-          id INTEGER PRIMARY KEY CHECK (id = 1),
-          payload TEXT NOT NULL
-        )
-      ''');
+      await _ensureCurrentTimerStateTable();
+      await _ensureAppSettingsTable();
     },
   );
 
@@ -138,6 +134,43 @@ class AppDatabase extends _$AppDatabase {
       CREATE TABLE IF NOT EXISTS current_timer_state (
         id INTEGER PRIMARY KEY CHECK (id = 1),
         payload TEXT NOT NULL
+      )
+    ''');
+  }
+
+  // ---- 应用设置 ----
+
+  Future<String?> loadAppSetting(String key) async {
+    await _ensureAppSettingsTable();
+    final row = await customSelect(
+      '''
+      SELECT setting_value
+      FROM app_settings
+      WHERE setting_key = ?
+      ''',
+      variables: [Variable<String>(key)],
+    ).getSingleOrNull();
+    return row?.read<String>('setting_value');
+  }
+
+  Future<void> saveAppSetting(String key, String value) async {
+    await _ensureAppSettingsTable();
+    await customStatement(
+      '''
+      INSERT INTO app_settings (setting_key, setting_value)
+      VALUES (?, ?)
+      ON CONFLICT(setting_key)
+      DO UPDATE SET setting_value = excluded.setting_value
+      ''',
+      [key, value],
+    );
+  }
+
+  Future<void> _ensureAppSettingsTable() {
+    return customStatement('''
+      CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT NOT NULL
       )
     ''');
   }
