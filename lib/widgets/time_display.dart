@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
-import '../theme/stopwatch_font_preset.dart';
 
 /// 时间显示组件：HH : MM : SS 格式，带中文标注
 class TimeDisplay extends ConsumerWidget {
@@ -16,7 +15,7 @@ class TimeDisplay extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final elapsed = ref.watch(timerProvider.select((s) => s.elapsed));
     final showSeconds = ref.watch(timerProvider.select((s) => s.showSeconds));
-    final fontPreset = ref.watch(stopwatchFontPresetProvider);
+    final displaySettings = ref.watch(stopwatchDisplaySettingsProvider);
 
     final hours = elapsed.inHours;
     final minutes = elapsed.inMinutes.remainder(60);
@@ -24,36 +23,39 @@ class TimeDisplay extends ConsumerWidget {
 
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTimeBlock(
-              hours.toString().padLeft(2, '0'),
-              '小时',
-              cs,
-              scale,
-              fontPreset,
-            ),
-            _Colon(cs: cs, scale: scale, fontPreset: fontPreset),
-            _buildTimeBlock(
-              minutes.toString().padLeft(2, '0'),
-              '分钟',
-              cs,
-              scale,
-              fontPreset,
-            ),
-            if (showSeconds) ...[
-              _Colon(cs: cs, scale: scale, fontPreset: fontPreset),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               _buildTimeBlock(
-                seconds.toString().padLeft(2, '0'),
-                '秒',
+                hours.toString().padLeft(2, '0'),
+                '小时',
                 cs,
                 scale,
-                fontPreset,
+                displaySettings,
               ),
+              _Colon(cs: cs, scale: scale, displaySettings: displaySettings),
+              _buildTimeBlock(
+                minutes.toString().padLeft(2, '0'),
+                '分钟',
+                cs,
+                scale,
+                displaySettings,
+              ),
+              if (showSeconds) ...[
+                _Colon(cs: cs, scale: scale, displaySettings: displaySettings),
+                _buildTimeBlock(
+                  seconds.toString().padLeft(2, '0'),
+                  '秒',
+                  cs,
+                  scale,
+                  displaySettings,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ],
     );
@@ -64,16 +66,18 @@ class TimeDisplay extends ConsumerWidget {
     String label,
     ColorScheme cs,
     double scale,
-    StopwatchFontPreset fontPreset,
+    StopwatchSettings displaySettings,
   ) {
     final labelSlotHeight = 25.0 * scale;
+    final fontPreset = displaySettings.effectiveFontPreset;
 
     return Column(
       children: [
         Text(
           value,
           style: fontPreset.textStyle(
-            fontSize: 56 * scale,
+            customFontFamily: displaySettings.effectiveCustomFontFamily,
+            fontSize: 56 * scale * displaySettings.digitScale,
             fontWeight: FontWeight.w400,
             color: cs.onSurface,
             height: 1,
@@ -98,27 +102,35 @@ class TimeDisplay extends ConsumerWidget {
 class _Colon extends StatelessWidget {
   final ColorScheme cs;
   final double scale;
-  final StopwatchFontPreset fontPreset;
+  final StopwatchSettings displaySettings;
 
   const _Colon({
     required this.cs,
     required this.scale,
-    required this.fontPreset,
+    required this.displaySettings,
   });
 
   @override
   Widget build(BuildContext context) {
+    final fontPreset = displaySettings.effectiveFontPreset;
+    final digitHeight = 56 * scale * displaySettings.digitScale;
+    final colonFontSize = 56 * scale * displaySettings.colonScale;
+    final colonWidth = 18 * scale * displaySettings.colonScale;
+
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 5 * scale),
+      padding: EdgeInsets.symmetric(
+        horizontal: displaySettings.separatorSpacing * scale,
+      ),
       child: SizedBox(
-        width: 18 * scale,
-        height: 56 * scale,
+        width: colonWidth,
+        height: digitHeight > colonFontSize ? digitHeight : colonFontSize,
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
             ':',
             style: fontPreset.textStyle(
-              fontSize: 56 * scale,
+              customFontFamily: displaySettings.effectiveCustomFontFamily,
+              fontSize: colonFontSize,
               fontWeight: FontWeight.w400,
               color: cs.onSurface.withValues(alpha: 0.72),
               height: 1,

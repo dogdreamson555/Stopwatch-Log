@@ -8,7 +8,6 @@ import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/ui_provider.dart';
 import '../services/window_service.dart';
-import '../theme/stopwatch_font_preset.dart';
 import 'window_close_button.dart';
 
 /// 悬浮模式下的紧凑计时器 UI
@@ -23,7 +22,7 @@ class FloatingTimer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timerState = ref.watch(timerProvider);
-    final fontPreset = ref.watch(stopwatchFontPresetProvider);
+    final displaySettings = ref.watch(stopwatchDisplaySettingsProvider);
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -59,7 +58,7 @@ class FloatingTimer extends ConsumerWidget {
                             elapsed: timerState.elapsed,
                             showSeconds: timerState.showSeconds,
                             scale: scale,
-                            fontPreset: fontPreset,
+                            displaySettings: displaySettings,
                           ),
                           SizedBox(height: 10 * scale),
                           _FloatingActions(
@@ -150,13 +149,13 @@ class _FloatingTimeDisplay extends StatelessWidget {
   final Duration elapsed;
   final bool showSeconds;
   final double scale;
-  final StopwatchFontPreset fontPreset;
+  final StopwatchSettings displaySettings;
 
   const _FloatingTimeDisplay({
     required this.elapsed,
     required this.showSeconds,
     required this.scale,
-    required this.fontPreset,
+    required this.displaySettings,
   });
 
   @override
@@ -171,31 +170,39 @@ class _FloatingTimeDisplay extends StatelessWidget {
       if (showSeconds) _TimePart(seconds.toString().padLeft(2, '0'), '秒'),
     ];
     final timeScale = _FloatingMetrics.timeScaleFor(scale);
-    final fontSize = (showSeconds ? 34.0 : 48.0) * timeScale;
-    final blockWidth = (showSeconds ? 49.0 : 66.0) * scale;
+    final fontSize =
+        (showSeconds ? 34.0 : 48.0) * timeScale * displaySettings.digitScale;
+    final colonFontSize =
+        (showSeconds ? 34.0 : 48.0) * timeScale * displaySettings.colonScale;
+    final blockWidth =
+        (showSeconds ? 49.0 : 66.0) * scale * displaySettings.digitScale;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < parts.length; i++) ...[
-          _FloatingTimeBlock(
-            value: parts[i].value,
-            label: parts[i].label,
-            width: blockWidth,
-            fontSize: fontSize,
-            scale: scale,
-            fontPreset: fontPreset,
-          ),
-          if (i < parts.length - 1)
-            _FloatingSeparator(
-              height: fontSize,
-              scale: timeScale,
-              cs: cs,
-              fontPreset: fontPreset,
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < parts.length; i++) ...[
+            _FloatingTimeBlock(
+              value: parts[i].value,
+              label: parts[i].label,
+              width: blockWidth,
+              fontSize: fontSize,
+              scale: scale,
+              displaySettings: displaySettings,
             ),
+            if (i < parts.length - 1)
+              _FloatingSeparator(
+                height: fontSize > colonFontSize ? fontSize : colonFontSize,
+                fontSize: colonFontSize,
+                scale: timeScale,
+                cs: cs,
+                displaySettings: displaySettings,
+              ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -206,7 +213,7 @@ class _FloatingTimeBlock extends StatelessWidget {
   final double width;
   final double fontSize;
   final double scale;
-  final StopwatchFontPreset fontPreset;
+  final StopwatchSettings displaySettings;
 
   const _FloatingTimeBlock({
     required this.value,
@@ -214,12 +221,13 @@ class _FloatingTimeBlock extends StatelessWidget {
     required this.width,
     required this.fontSize,
     required this.scale,
-    required this.fontPreset,
+    required this.displaySettings,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final fontPreset = displaySettings.effectiveFontPreset;
 
     return SizedBox(
       width: width,
@@ -234,6 +242,7 @@ class _FloatingTimeBlock extends StatelessWidget {
                 value,
                 maxLines: 1,
                 style: fontPreset.textStyle(
+                  customFontFamily: displaySettings.effectiveCustomFontFamily,
                   fontSize: fontSize,
                   fontWeight: FontWeight.w400,
                   color: cs.onSurface.withValues(alpha: 0.74),
@@ -260,30 +269,37 @@ class _FloatingTimeBlock extends StatelessWidget {
 
 class _FloatingSeparator extends StatelessWidget {
   final double height;
+  final double fontSize;
   final double scale;
   final ColorScheme cs;
-  final StopwatchFontPreset fontPreset;
+  final StopwatchSettings displaySettings;
 
   const _FloatingSeparator({
     required this.height,
+    required this.fontSize,
     required this.scale,
     required this.cs,
-    required this.fontPreset,
+    required this.displaySettings,
   });
 
   @override
   Widget build(BuildContext context) {
+    final fontPreset = displaySettings.effectiveFontPreset;
+
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 2 * scale),
+      padding: EdgeInsets.symmetric(
+        horizontal: displaySettings.separatorSpacing * scale,
+      ),
       child: SizedBox(
-        width: 10 * scale,
+        width: 10 * scale * displaySettings.colonScale,
         height: height,
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
             ':',
             style: fontPreset.textStyle(
-              fontSize: height,
+              customFontFamily: displaySettings.effectiveCustomFontFamily,
+              fontSize: fontSize,
               fontWeight: FontWeight.w400,
               color: cs.onSurface.withValues(alpha: 0.52),
               height: 1,
