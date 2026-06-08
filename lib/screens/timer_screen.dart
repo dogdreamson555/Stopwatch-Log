@@ -13,6 +13,7 @@ import '../widgets/timer_controls.dart';
 import '../widgets/window_close_button.dart';
 import 'history_screen.dart';
 import 'review_screen.dart';
+import 'settings_screen.dart';
 
 /// 计时器主屏幕
 class TimerScreen extends ConsumerWidget {
@@ -66,6 +67,18 @@ class TimerScreen extends ConsumerWidget {
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const HistoryScreen(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // 设置按钮
+                        WindowControlButton(
+                          icon: Icons.settings_outlined,
+                          tooltip: '设置',
+                          iconSize: 19,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsScreen(),
                             ),
                           ),
                         ),
