@@ -8,6 +8,7 @@ import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/ui_provider.dart';
 import '../services/window_service.dart';
+import 'stopwatch_colon.dart';
 import 'window_close_button.dart';
 
 /// 悬浮模式下的紧凑计时器 UI
@@ -170,10 +171,8 @@ class _FloatingTimeDisplay extends StatelessWidget {
       if (showSeconds) _TimePart(seconds.toString().padLeft(2, '0'), '秒'),
     ];
     final timeScale = _FloatingMetrics.timeScaleFor(scale);
-    final fontSize =
-        (showSeconds ? 34.0 : 48.0) * timeScale * displaySettings.digitScale;
-    final colonFontSize =
-        (showSeconds ? 34.0 : 48.0) * timeScale * displaySettings.colonScale;
+    final baseFontSize = (showSeconds ? 34.0 : 48.0) * timeScale;
+    final fontSize = baseFontSize * displaySettings.digitScale;
     final blockWidth =
         (showSeconds ? 49.0 : 66.0) * scale * displaySettings.digitScale;
 
@@ -194,8 +193,8 @@ class _FloatingTimeDisplay extends StatelessWidget {
             ),
             if (i < parts.length - 1)
               _FloatingSeparator(
-                height: fontSize > colonFontSize ? fontSize : colonFontSize,
-                fontSize: colonFontSize,
+                height: fontSize,
+                baseSize: baseFontSize,
                 scale: timeScale,
                 cs: cs,
                 displaySettings: displaySettings,
@@ -269,14 +268,14 @@ class _FloatingTimeBlock extends StatelessWidget {
 
 class _FloatingSeparator extends StatelessWidget {
   final double height;
-  final double fontSize;
+  final double baseSize;
   final double scale;
   final ColorScheme cs;
   final StopwatchSettings displaySettings;
 
   const _FloatingSeparator({
     required this.height,
-    required this.fontSize,
+    required this.baseSize,
     required this.scale,
     required this.cs,
     required this.displaySettings,
@@ -284,28 +283,16 @@ class _FloatingSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fontPreset = displaySettings.effectiveFontPreset;
-
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: displaySettings.separatorSpacing * scale,
       ),
-      child: SizedBox(
+      child: StopwatchColon(
         width: 10 * scale * displaySettings.colonScale,
         height: height,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            ':',
-            style: fontPreset.textStyle(
-              customFontFamily: displaySettings.effectiveCustomFontFamily,
-              fontSize: fontSize,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface.withValues(alpha: 0.52),
-              height: 1,
-            ),
-          ),
-        ),
+        baseSize: baseSize,
+        colonScale: displaySettings.colonScale,
+        color: cs.onSurface.withValues(alpha: 0.52),
       ),
     );
   }

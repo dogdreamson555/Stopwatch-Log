@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
+import 'stopwatch_colon.dart';
 
 /// 时间显示组件：HH : MM : SS 格式，带中文标注
 class TimeDisplay extends ConsumerWidget {
@@ -112,31 +113,19 @@ class _Colon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fontPreset = displaySettings.effectiveFontPreset;
     final digitHeight = 56 * scale * displaySettings.digitScale;
-    final colonFontSize = 56 * scale * displaySettings.colonScale;
     final colonWidth = 18 * scale * displaySettings.colonScale;
 
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: displaySettings.separatorSpacing * scale,
       ),
-      child: SizedBox(
+      child: StopwatchColon(
         width: colonWidth,
-        height: digitHeight > colonFontSize ? digitHeight : colonFontSize,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            ':',
-            style: fontPreset.textStyle(
-              customFontFamily: displaySettings.effectiveCustomFontFamily,
-              fontSize: colonFontSize,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface.withValues(alpha: 0.72),
-              height: 1,
-            ),
-          ),
-        ),
+        height: digitHeight,
+        baseSize: 56 * scale,
+        colonScale: displaySettings.colonScale,
+        color: cs.onSurface.withValues(alpha: 0.72),
       ),
     );
   }
