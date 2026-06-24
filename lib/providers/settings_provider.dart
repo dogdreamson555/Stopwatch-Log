@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_language.dart';
 import '../services/custom_font_service.dart';
 import '../theme/stopwatch_font_preset.dart';
 import 'session_archive_provider.dart';
@@ -11,8 +12,10 @@ const _customFontLabelKey = 'stopwatch_custom_font_label';
 const _digitScaleKey = 'stopwatch_digit_scale';
 const _colonScaleKey = 'stopwatch_colon_scale';
 const _separatorSpacingKey = 'stopwatch_separator_spacing';
+const _appLanguageKey = 'app_language';
 
 class StopwatchSettings {
+  final AppLanguage appLanguage;
   final StopwatchFontPreset stopwatchFontPreset;
   final String? customFontPath;
   final String? customFontFamily;
@@ -22,6 +25,7 @@ class StopwatchSettings {
   final double separatorSpacing;
 
   const StopwatchSettings({
+    this.appLanguage = AppLanguage.simplifiedChinese,
     this.stopwatchFontPreset = StopwatchFontPreset.defaultPreset,
     this.customFontPath,
     this.customFontFamily,
@@ -46,6 +50,7 @@ class StopwatchSettings {
   }
 
   StopwatchSettings copyWith({
+    AppLanguage? appLanguage,
     StopwatchFontPreset? stopwatchFontPreset,
     String? customFontPath,
     String? customFontFamily,
@@ -55,6 +60,7 @@ class StopwatchSettings {
     double? separatorSpacing,
   }) {
     return StopwatchSettings(
+      appLanguage: appLanguage ?? this.appLanguage,
       stopwatchFontPreset: stopwatchFontPreset ?? this.stopwatchFontPreset,
       customFontPath: customFontPath ?? this.customFontPath,
       customFontFamily: customFontFamily ?? this.customFontFamily,
@@ -70,6 +76,7 @@ class StopwatchSettingsNotifier extends AsyncNotifier<StopwatchSettings> {
   @override
   Future<StopwatchSettings> build() async {
     final db = ref.read(databaseProvider);
+    final rawLanguage = await db.loadAppSetting(_appLanguageKey);
     final rawPreset = await db.loadAppSetting(_stopwatchFontPresetKey);
     final customFontPath = await db.loadAppSetting(_customFontPathKey);
     final customFontFamily = await db.loadAppSetting(_customFontFamilyKey);
@@ -105,6 +112,7 @@ class StopwatchSettingsNotifier extends AsyncNotifier<StopwatchSettings> {
     }
 
     return StopwatchSettings(
+      appLanguage: AppLanguage.fromId(rawLanguage),
       stopwatchFontPreset: StopwatchFontPreset.fromId(rawPreset),
       customFontPath: customFontPath,
       customFontFamily: customFontFamily,
@@ -113,6 +121,22 @@ class StopwatchSettingsNotifier extends AsyncNotifier<StopwatchSettings> {
       colonScale: colonScale,
       separatorSpacing: separatorSpacing,
     );
+  }
+
+  Future<void> setAppLanguage(AppLanguage language) async {
+    final current = state.value ?? const StopwatchSettings();
+    if (current.appLanguage == language) return;
+
+    final next = current.copyWith(appLanguage: language);
+    state = AsyncData(next);
+
+    try {
+      await ref
+          .read(databaseProvider)
+          .saveAppSetting(_appLanguageKey, language.id);
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+    }
   }
 
   Future<void> setStopwatchFontPreset(StopwatchFontPreset preset) async {
@@ -251,6 +275,11 @@ final stopwatchFontPresetProvider = Provider<StopwatchFontPreset>((ref) {
 final stopwatchDisplaySettingsProvider = Provider<StopwatchSettings>((ref) {
   final settings = ref.watch(stopwatchSettingsProvider);
   return settings.value ?? const StopwatchSettings();
+});
+
+final appLanguageProvider = Provider<AppLanguage>((ref) {
+  final settings = ref.watch(stopwatchSettingsProvider);
+  return settings.value?.appLanguage ?? AppLanguage.simplifiedChinese;
 });
 
 double _parseDoubleSetting(

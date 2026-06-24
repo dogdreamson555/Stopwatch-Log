@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/ui_provider.dart';
@@ -119,7 +120,7 @@ class _FloatingTitleBar extends StatelessWidget {
         children: [
           WindowControlButton(
             icon: Icons.open_in_full_rounded,
-            tooltip: '退出悬浮窗',
+            tooltip: context.l10n.exitFloating,
             size: 28,
             iconSize: 15,
             compact: true,
@@ -166,9 +167,10 @@ class _FloatingTimeDisplay extends StatelessWidget {
     final minutes = elapsed.inMinutes.remainder(60);
     final seconds = elapsed.inSeconds.remainder(60);
     final parts = [
-      _TimePart(hours.toString().padLeft(2, '0'), '小时'),
-      _TimePart(minutes.toString().padLeft(2, '0'), '分钟'),
-      if (showSeconds) _TimePart(seconds.toString().padLeft(2, '0'), '秒'),
+      _TimePart(hours.toString().padLeft(2, '0'), context.l10n.hours),
+      _TimePart(minutes.toString().padLeft(2, '0'), context.l10n.minutes),
+      if (showSeconds)
+        _TimePart(seconds.toString().padLeft(2, '0'), context.l10n.seconds),
     ];
     final timeScale = _FloatingMetrics.timeScaleFor(scale);
     final baseFontSize = (showSeconds ? 34.0 : 48.0) * timeScale;
@@ -328,7 +330,7 @@ class _FloatingActions extends StatelessWidget {
       TimerStatus.idle => [
         _RoundActionButton(
           icon: Icons.play_arrow_rounded,
-          tooltip: '开始',
+          tooltip: context.l10n.start,
           color: cs.primary,
           size: buttonSize,
           iconSize: primaryIconSize,
@@ -338,7 +340,7 @@ class _FloatingActions extends StatelessWidget {
       TimerStatus.running => [
         _RoundActionButton(
           icon: Icons.pause_rounded,
-          tooltip: '暂停',
+          tooltip: context.l10n.pause,
           color: cs.tertiary,
           size: buttonSize,
           iconSize: primaryIconSize,
@@ -347,7 +349,7 @@ class _FloatingActions extends StatelessWidget {
         SizedBox(width: buttonGap),
         _RoundActionButton(
           icon: Icons.bookmark_add_rounded,
-          tooltip: '打点',
+          tooltip: context.l10n.markPoint,
           color: cs.secondary,
           emphasized: false,
           size: buttonSize,
@@ -358,7 +360,7 @@ class _FloatingActions extends StatelessWidget {
       TimerStatus.paused => [
         _RoundActionButton(
           icon: Icons.play_arrow_rounded,
-          tooltip: '继续',
+          tooltip: context.l10n.resume,
           color: cs.primary,
           size: buttonSize,
           iconSize: primaryIconSize,
@@ -367,7 +369,7 @@ class _FloatingActions extends StatelessWidget {
         SizedBox(width: buttonGap),
         _RoundActionButton(
           icon: Icons.stop_rounded,
-          tooltip: '结束',
+          tooltip: context.l10n.finish,
           color: cs.error,
           size: buttonSize,
           iconSize: primaryIconSize,

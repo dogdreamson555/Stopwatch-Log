@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/timer_point.dart';
 import '../models/timer_session.dart';
 import '../providers/session_archive_provider.dart';
@@ -40,7 +40,10 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final cs = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('总结已保存 ✓', style: TextStyle(color: cs.onPrimary)),
+        content: Text(
+          context.l10n.summarySaved,
+          style: TextStyle(color: cs.onPrimary),
+        ),
         duration: const Duration(seconds: 1),
         backgroundColor: cs.primary,
       ),
@@ -51,17 +54,21 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   Widget build(BuildContext context) {
     final s = widget.session;
     final cs = Theme.of(context).colorScheme;
-    final dateStr = DateFormat('yyyy年M月d日  HH:mm').format(s.date);
+    final l10n = context.l10n;
+    final material = MaterialLocalizations.of(context);
+    final dateStr =
+        '${material.formatFullDate(s.date)}  '
+        '${material.formatTimeOfDay(TimeOfDay.fromDateTime(s.date), alwaysUse24HourFormat: true)}';
     final totalStr = _formatDuration(s.totalElapsed);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('复盘归档'),
+        title: Text(l10n.reviewArchive),
         actions: [
           TextButton.icon(
             onPressed: _saveSummary,
             icon: const Icon(Icons.save, size: 18),
-            label: const Text('保存'),
+            label: Text(l10n.save),
             style: TextButton.styleFrom(foregroundColor: cs.primary),
           ),
         ],
@@ -74,7 +81,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             // ── 日期 ──
             _buildInfoCard(
               icon: Icons.calendar_today,
-              label: '日期',
+              label: l10n.date,
               value: dateStr,
             ),
             const SizedBox(height: 12),
@@ -82,17 +89,17 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             // ── 净总时长 ──
             _buildInfoCard(
               icon: Icons.timer,
-              label: '净总时长',
+              label: l10n.netDuration,
               value: totalStr,
               highlight: true,
             ),
             const SizedBox(height: 24),
 
             // ── 打点流 ──
-            _buildSectionTitle('打点流', Icons.flag_outlined),
+            _buildSectionTitle(l10n.pointStream, Icons.flag_outlined),
             const SizedBox(height: 8),
             if (s.points.isEmpty)
-              _buildEmptyHint('本次没有打点记录')
+              _buildEmptyHint(l10n.noPointsThisSession)
             else
               ...s.points.asMap().entries.map(
                 (e) => _buildPointTile(e.key + 1, e.value),
@@ -101,14 +108,14 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             const SizedBox(height: 24),
 
             // ── 自我总结 ──
-            _buildSectionTitle('自我总结', Icons.edit_note),
+            _buildSectionTitle(l10n.selfSummary, Icons.edit_note),
             const SizedBox(height: 8),
             TextField(
               controller: _summaryController,
               maxLines: 5,
               style: TextStyle(color: cs.onSurface, fontSize: 15),
               decoration: InputDecoration(
-                hintText: '写下对这段时间的反思、收获或感受…',
+                hintText: l10n.summaryHint,
                 hintStyle: TextStyle(
                   color: cs.onSurface.withValues(alpha: 0.3),
                 ),

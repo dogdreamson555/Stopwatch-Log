@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/timer_point.dart';
 import '../theme/app_typography.dart';
 
@@ -78,7 +79,7 @@ class _PointMarkerState extends State<PointMarker> {
                     focusNode: _focusNode,
                     style: TextStyle(color: cs.onSurface, fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: '记录此刻的想法…',
+                      hintText: context.l10n.pointNoteHint,
                       hintStyle: TextStyle(
                         color: cs.onSurface.withValues(alpha: 0.3),
                       ),
@@ -100,7 +101,7 @@ class _PointMarkerState extends State<PointMarker> {
                 IconButton(
                   onPressed: _submit,
                   icon: Icon(Icons.bookmark_add, color: cs.primary),
-                  tooltip: '打点',
+                  tooltip: context.l10n.markPoint,
                 ),
               ],
             ),

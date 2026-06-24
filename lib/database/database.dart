@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+import '../models/local_data_backup.dart';
 
 part 'database.g.dart';
 
@@ -173,6 +176,127 @@ class AppDatabase extends _$AppDatabase {
         setting_value TEXT NOT NULL
       )
     ''');
+  }
+
+  // ---- 本地数据备份 ----
+
+  Future<LocalDataBackup> createLocalDataBackup() async {
+    await _ensureCurrentTimerStateTable();
+    await _ensureAppSettingsTable();
+
+    return transaction(() async {
+      final sessionRows = await select(sessions).get();
+      final pointRows = await select(points).get();
+      final settingRows = await customSelect(
+        'SELECT setting_key, setting_value FROM app_settings',
+      ).get();
+      final currentTimerPayload = await loadCurrentTimerState();
+
+      Map<String, dynamic>? currentTimerState;
+      if (currentTimerPayload != null && currentTimerPayload.isNotEmpty) {
+        final decoded = jsonDecode(currentTimerPayload);
+        if (decoded is! Map<String, dynamic>) {
+          throw const FormatException('当前计时数据格式无效');
+        }
+        currentTimerState = decoded;
+      }
+
+      return LocalDataBackup(
+        exportedAt: DateTime.now(),
+        sessions: sessionRows
+            .map(
+              (row) => LocalDataSession(
+                id: row.id,
+                date: row.date,
+                totalElapsedMs: row.totalElapsedMs,
+                summary: row.summary,
+              ),
+            )
+            .toList(growable: false),
+        points: pointRows
+            .map(
+              (row) => LocalDataPoint(
+                id: row.id,
+                sessionId: row.sessionId,
+                elapsedAtMs: row.elapsedAtMs,
+                createdAt: row.createdAt,
+                note: row.note,
+              ),
+            )
+            .toList(growable: false),
+        settings: {
+          for (final row in settingRows)
+            row.read<String>('setting_key'): row.read<String>('setting_value'),
+        },
+        currentTimerState: currentTimerState,
+      );
+    });
+  }
+
+  Future<void> replaceLocalData(LocalDataBackup backup) async {
+    await _ensureCurrentTimerStateTable();
+    await _ensureAppSettingsTable();
+
+    await transaction(() async {
+      await delete(points).go();
+      await delete(sessions).go();
+      await customStatement('DELETE FROM current_timer_state');
+      await customStatement('DELETE FROM app_settings');
+
+      if (backup.sessions.isNotEmpty) {
+        await batch(
+          (batch) => batch.insertAll(
+            sessions,
+            backup.sessions
+                .map(
+                  (session) => SessionsCompanion.insert(
+                    id: session.id,
+                    date: session.date,
+                    totalElapsedMs: session.totalElapsedMs,
+                    summary: Value(session.summary),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        );
+      }
+
+      if (backup.points.isNotEmpty) {
+        await batch(
+          (batch) => batch.insertAll(
+            points,
+            backup.points
+                .map(
+                  (point) => PointsCompanion.insert(
+                    id: point.id,
+                    sessionId: point.sessionId,
+                    elapsedAtMs: point.elapsedAtMs,
+                    createdAt: point.createdAt,
+                    note: Value(point.note),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        );
+      }
+
+      for (final entry in backup.settings.entries) {
+        await customStatement(
+          '''
+          INSERT INTO app_settings (setting_key, setting_value)
+          VALUES (?, ?)
+          ''',
+          [entry.key, entry.value],
+        );
+      }
+
+      final currentTimerState = backup.currentTimerState;
+      if (currentTimerState != null) {
+        final normalizedState = Map<String, dynamic>.from(currentTimerState)
+          ..['savedAt'] = DateTime.now().toIso8601String();
+        await saveCurrentTimerState(jsonEncode(normalizedState));
+      }
+    });
   }
 }
 

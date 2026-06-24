@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
 import 'stopwatch_colon.dart';
@@ -32,7 +33,7 @@ class TimeDisplay extends ConsumerWidget {
             children: [
               _buildTimeBlock(
                 hours.toString().padLeft(2, '0'),
-                '小时',
+                context.l10n.hours,
                 cs,
                 scale,
                 displaySettings,
@@ -40,7 +41,7 @@ class TimeDisplay extends ConsumerWidget {
               _Colon(cs: cs, scale: scale, displaySettings: displaySettings),
               _buildTimeBlock(
                 minutes.toString().padLeft(2, '0'),
-                '分钟',
+                context.l10n.minutes,
                 cs,
                 scale,
                 displaySettings,
@@ -49,7 +50,7 @@ class TimeDisplay extends ConsumerWidget {
                 _Colon(cs: cs, scale: scale, displaySettings: displaySettings),
                 _buildTimeBlock(
                   seconds.toString().padLeft(2, '0'),
-                  '秒',
+                  context.l10n.seconds,
                   cs,
                   scale,
                   displaySettings,

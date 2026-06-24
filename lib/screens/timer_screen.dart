@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/timer_provider.dart';
 import '../providers/ui_provider.dart';
 import '../services/window_service.dart';
@@ -43,7 +44,7 @@ class TimerScreen extends ConsumerWidget {
                         // 悬浮模式按钮
                         WindowControlButton(
                           icon: Icons.picture_in_picture_alt,
-                          tooltip: '切换到悬浮窗',
+                          tooltip: context.l10n.switchToFloating,
                           iconSize: 18,
                           onTap: () async {
                             final floatingMode = ref.read(
@@ -62,7 +63,7 @@ class TimerScreen extends ConsumerWidget {
                         // 历史记录按钮
                         WindowControlButton(
                           icon: Icons.history_rounded,
-                          tooltip: '历史记录',
+                          tooltip: context.l10n.history,
                           iconSize: 19,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
@@ -74,7 +75,7 @@ class TimerScreen extends ConsumerWidget {
                         // 设置按钮
                         WindowControlButton(
                           icon: Icons.settings_outlined,
-                          tooltip: '设置',
+                          tooltip: context.l10n.settings,
                           iconSize: 19,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
@@ -137,7 +138,7 @@ class TimerScreen extends ConsumerWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 _ToggleChip(
-                                  label: '秒',
+                                  label: context.l10n.seconds,
                                   value: timerState.showSeconds,
                                   onChanged: (_) => ref
                                       .read(timerProvider.notifier)

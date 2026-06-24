@@ -1,29 +1,55 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_selector/file_selector.dart';
 
+import '../l10n/app_language.dart';
+import '../l10n/app_localizations.dart';
+import '../providers/session_archive_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/timer_provider.dart';
+import '../services/local_data_backup_service.dart';
 import '../theme/stopwatch_font_preset.dart';
 
 /// 设置页骨架。
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _isDataOperationRunning = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final settingsAsync = ref.watch(stopwatchSettingsProvider);
     final settings = settingsAsync.value ?? const StopwatchSettings();
     final selectedFont = settings.effectiveFontPreset;
     final settingsNotifier = ref.read(stopwatchSettingsProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+      appBar: AppBar(title: Text(l10n.settings)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           _SettingsSection(
-            title: '秒表显示',
+            title: l10n.general,
+            children: [
+              _LanguageTile(
+                language: settings.appLanguage,
+                isLoading: settingsAsync.isLoading,
+                onChanged: settingsNotifier.setAppLanguage,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _SettingsSection(
+            title: l10n.stopwatchDisplay,
             children: [
               _FontChoiceGroup(
                 settings: settings,
@@ -35,7 +61,7 @@ class SettingsScreen extends ConsumerWidget {
               const _SettingsDivider(),
               _SliderTile(
                 icon: Icons.numbers_rounded,
-                title: '数字大小',
+                title: l10n.digitSize,
                 value: settings.digitScale,
                 min: 0.75,
                 max: 1.35,
@@ -48,7 +74,7 @@ class SettingsScreen extends ConsumerWidget {
               const _SettingsDivider(),
               _SliderTile(
                 icon: Icons.more_vert_rounded,
-                title: '冒号大小',
+                title: l10n.colonSize,
                 value: settings.colonScale,
                 min: 0.7,
                 max: 1.45,
@@ -61,7 +87,7 @@ class SettingsScreen extends ConsumerWidget {
               const _SettingsDivider(),
               _SliderTile(
                 icon: Icons.swap_horiz_rounded,
-                title: '数字与冒号间距',
+                title: l10n.digitColonSpacing,
                 value: settings.separatorSpacing,
                 min: 0,
                 max: 14,
@@ -82,13 +108,22 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
           _SettingsSection(
-            title: '数据',
+            title: l10n.data,
             children: [
-              _PlaceholderTile(
-                icon: Icons.storage_outlined,
-                title: '本地数据',
-                subtitle: '后续可放入导入、导出和备份相关功能',
-                color: cs.tertiary,
+              _DataActionTile(
+                icon: Icons.file_upload_outlined,
+                title: l10n.exportData,
+                subtitle: l10n.exportDataDescription,
+                isLoading: _isDataOperationRunning,
+                onTap: () => _exportLocalData(context),
+              ),
+              const _SettingsDivider(),
+              _DataActionTile(
+                icon: Icons.file_download_outlined,
+                title: l10n.importData,
+                subtitle: l10n.importDataDescription,
+                isLoading: _isDataOperationRunning,
+                onTap: () => _importLocalData(context),
               ),
             ],
           ),
@@ -98,15 +133,16 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _pickAndImportFont(BuildContext context, WidgetRef ref) async {
-    const fontTypeGroup = XTypeGroup(
-      label: '字体文件',
+    final l10n = context.l10n;
+    final fontTypeGroup = XTypeGroup(
+      label: l10n.fontFile,
       extensions: ['ttf', 'otf', 'ttc'],
     );
 
     final messenger = ScaffoldMessenger.of(context);
     final selectedFile = await openFile(
-      acceptedTypeGroups: const [fontTypeGroup],
-      confirmButtonText: '导入',
+      acceptedTypeGroups: [fontTypeGroup],
+      confirmButtonText: l10n.importAction,
     );
     if (selectedFile == null) return;
 
@@ -115,21 +151,132 @@ class SettingsScreen extends ConsumerWidget {
           .read(stopwatchSettingsProvider.notifier)
           .importCustomFont(selectedFile.path);
       if (!context.mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('字体已导入')));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.fontImported)));
     } catch (error) {
       if (!context.mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(_formatImportError(error))),
+        SnackBar(content: Text(_formatImportError(error, l10n))),
       );
     }
   }
 
-  String _formatImportError(Object error) {
+  String _formatImportError(Object error, AppLocalizations l10n) {
     final message = error.toString();
-    if (message.contains('字体文件不存在')) return '字体文件不存在';
-    if (message.contains('仅支持')) return '仅支持 .ttf、.otf、.ttc 字体文件';
-    if (message.contains('请输入')) return '请输入字体文件路径';
-    return '导入失败，请检查字体文件';
+    if (message.contains('字体文件不存在')) return l10n.fontFileMissing;
+    if (message.contains('仅支持')) return l10n.unsupportedFontFile;
+    if (message.contains('请输入')) return l10n.fontPathRequired;
+    return l10n.fontImportFailed;
+  }
+
+  Future<void> _exportLocalData(BuildContext context) async {
+    final l10n = context.l10n;
+    final fileName =
+        'stopwatch-log-backup-${_fileTimestamp(DateTime.now())}.json';
+    final backupTypeGroup = XTypeGroup(
+      label: l10n.backupFile,
+      extensions: const ['json'],
+    );
+    final location = await getSaveLocation(
+      acceptedTypeGroups: [backupTypeGroup],
+      suggestedName: fileName,
+      confirmButtonText: l10n.exportAction,
+    );
+    if (location == null || !mounted) return;
+
+    setState(() => _isDataOperationRunning = true);
+    try {
+      await ref.read(timerProvider.notifier).persistNow();
+      final service = LocalDataBackupService(ref.read(databaseProvider));
+      final json = await service.exportToJson();
+      final backupFile = XFile.fromData(
+        Uint8List.fromList(utf8.encode(json)),
+        mimeType: 'application/json',
+        name: fileName,
+      );
+      await backupFile.saveTo(location.path);
+      if (!context.mounted) return;
+      _showMessage(context, l10n.dataExported);
+    } catch (_) {
+      if (!context.mounted) return;
+      _showMessage(context, l10n.dataExportFailed);
+    } finally {
+      if (mounted) setState(() => _isDataOperationRunning = false);
+    }
+  }
+
+  Future<void> _importLocalData(BuildContext context) async {
+    final l10n = context.l10n;
+    final canImport = await ref
+        .read(timerProvider.notifier)
+        .prepareForDataImport();
+    if (!context.mounted) return;
+
+    if (!canImport) {
+      _showMessage(context, l10n.stopTimerBeforeImport);
+      return;
+    }
+
+    final backupTypeGroup = XTypeGroup(
+      label: l10n.backupFile,
+      extensions: const ['json'],
+    );
+    final selectedFile = await openFile(
+      acceptedTypeGroups: [backupTypeGroup],
+      confirmButtonText: l10n.importAction,
+    );
+    if (selectedFile == null || !context.mounted) return;
+
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(l10n.confirmDataImport),
+            content: Text(l10n.importDataWarning),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(l10n.replaceData),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isDataOperationRunning = true);
+    try {
+      final source = await selectedFile.readAsString();
+      final service = LocalDataBackupService(ref.read(databaseProvider));
+      final backup = await service.importFromJson(source);
+
+      ref.invalidate(sessionArchiveProvider);
+      ref.invalidate(stopwatchSettingsProvider);
+      ref.invalidate(timerProvider);
+
+      if (!context.mounted) return;
+      _showMessage(
+        context,
+        l10n.dataImported(backup.sessions.length, backup.points.length),
+      );
+    } on FormatException {
+      if (!context.mounted) return;
+      _showMessage(context, l10n.invalidBackupFile);
+    } catch (_) {
+      if (!context.mounted) return;
+      _showMessage(context, l10n.dataImportFailed);
+    } finally {
+      if (mounted) setState(() => _isDataOperationRunning = false);
+    }
+  }
+
+  void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _formatPercent(double value) {
@@ -170,6 +317,51 @@ class _SettingsSection extends StatelessWidget {
           child: Column(children: children),
         ),
       ],
+    );
+  }
+}
+
+class _LanguageTile extends StatelessWidget {
+  final AppLanguage language;
+  final bool isLoading;
+  final ValueChanged<AppLanguage> onChanged;
+
+  const _LanguageTile({
+    required this.language,
+    required this.isLoading,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ListTile(
+      leading: Icon(
+        Icons.translate_rounded,
+        color: cs.primary.withValues(alpha: 0.82),
+      ),
+      title: Text(context.l10n.language),
+      subtitle: Text(
+        language.nativeName,
+        style: TextStyle(color: cs.onSurface.withValues(alpha: 0.48)),
+      ),
+      trailing: PopupMenuButton<AppLanguage>(
+        initialValue: language,
+        enabled: !isLoading,
+        tooltip: context.l10n.language,
+        icon: const Icon(Icons.arrow_drop_down_rounded),
+        onSelected: onChanged,
+        itemBuilder: (context) => [
+          for (final option in AppLanguage.values)
+            CheckedPopupMenuItem(
+              value: option,
+              checked: option == language,
+              child: Text(option.nativeName),
+            ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }
 }
@@ -263,12 +455,13 @@ class _CustomFontTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final hasCustomFont = settings.hasCustomFont;
     final isSelected =
         settings.effectiveFontPreset == StopwatchFontPreset.custom;
     final title = hasCustomFont
-        ? settings.customFontLabel ?? StopwatchFontPreset.custom.label
-        : StopwatchFontPreset.custom.label;
+        ? settings.customFontLabel ?? l10n.customFont
+        : l10n.customFont;
 
     return Material(
       color: Colors.transparent,
@@ -298,7 +491,9 @@ class _CustomFontTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      hasCustomFont ? '已导入本地字体' : '导入 .ttf / .otf / .ttc',
+                      hasCustomFont
+                          ? l10n.importedLocalFont
+                          : l10n.importFontTypes,
                       style: TextStyle(
                         color: cs.onSurface.withValues(alpha: 0.48),
                         fontSize: 12,
@@ -325,7 +520,7 @@ class _CustomFontTile extends StatelessWidget {
                 const SizedBox(width: 2),
               ],
               Tooltip(
-                message: '导入字体',
+                message: l10n.importFont,
                 child: IconButton(
                   onPressed: isLoading ? null : onImport,
                   icon: const Icon(Icons.file_upload_outlined),
@@ -420,9 +615,9 @@ class _ResetDisplayTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: const Icon(Icons.restart_alt_rounded),
-      title: const Text('恢复默认显示参数'),
+      title: Text(context.l10n.resetDisplay),
       trailing: IconButton(
-        tooltip: '恢复默认',
+        tooltip: context.l10n.resetDefault,
         onPressed: onReset,
         icon: const Icon(Icons.refresh_rounded),
       ),
@@ -447,6 +642,7 @@ class _FontPresetTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final isSelected = preset == selectedFont;
 
     return Material(
@@ -469,7 +665,7 @@ class _FontPresetTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      preset.label,
+                      _fontPresetLabel(preset, l10n),
                       style: TextStyle(
                         color: cs.onSurface,
                         fontWeight: FontWeight.w600,
@@ -477,7 +673,7 @@ class _FontPresetTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      preset.description,
+                      _fontPresetDescription(preset, l10n),
                       style: TextStyle(
                         color: cs.onSurface.withValues(alpha: 0.48),
                         fontSize: 12,
@@ -521,17 +717,19 @@ class _SettingsDivider extends StatelessWidget {
   }
 }
 
-class _PlaceholderTile extends StatelessWidget {
+class _DataActionTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final Color color;
+  final bool isLoading;
+  final VoidCallback onTap;
 
-  const _PlaceholderTile({
+  const _DataActionTile({
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.color,
+    required this.isLoading,
+    required this.onTap,
   });
 
   @override
@@ -539,14 +737,51 @@ class _PlaceholderTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return ListTile(
-      leading: Icon(icon, color: color.withValues(alpha: 0.82)),
+      leading: Icon(icon, color: cs.tertiary.withValues(alpha: 0.82)),
       title: Text(title),
       subtitle: Text(
         subtitle,
         style: TextStyle(color: cs.onSurface.withValues(alpha: 0.48)),
       ),
-      enabled: false,
+      trailing: isLoading
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.chevron_right_rounded),
+      enabled: !isLoading,
+      onTap: isLoading ? null : onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     );
   }
+}
+
+String _fontPresetLabel(StopwatchFontPreset preset, AppLocalizations l10n) {
+  return switch (preset) {
+    StopwatchFontPreset.custom => l10n.customFont,
+    _ => preset.label,
+  };
+}
+
+String _fontPresetDescription(
+  StopwatchFontPreset preset,
+  AppLocalizations l10n,
+) {
+  return switch (preset) {
+    StopwatchFontPreset.segoeDisplay => l10n.segoeDescription,
+    StopwatchFontPreset.cascadiaMono => l10n.cascadiaDescription,
+    StopwatchFontPreset.consolas => l10n.consolasDescription,
+    StopwatchFontPreset.bahnschrift => l10n.bahnschriftDescription,
+    StopwatchFontPreset.custom => l10n.customFontDescription,
+  };
+}
+
+String _fileTimestamp(DateTime value) {
+  String twoDigits(int number) => number.toString().padLeft(2, '0');
+  return '${value.year}'
+      '${twoDigits(value.month)}'
+      '${twoDigits(value.day)}-'
+      '${twoDigits(value.hour)}'
+      '${twoDigits(value.minute)}'
+      '${twoDigits(value.second)}';
 }

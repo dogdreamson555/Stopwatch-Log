@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'l10n/app_localizations.dart';
+import 'providers/settings_provider.dart';
 import 'providers/timer_provider.dart';
 import 'providers/ui_provider.dart';
 import 'screens/timer_screen.dart';
@@ -78,13 +80,19 @@ void main() async {
   runApp(const ProviderScope(child: StopwatchLogApp()));
 }
 
-class StopwatchLogApp extends StatelessWidget {
+class StopwatchLogApp extends ConsumerWidget {
   const StopwatchLogApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final language = ref.watch(appLanguageProvider);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      onGenerateTitle: (context) => context.l10n.appTitle,
+      locale: language.locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       theme: _buildTheme(_lightColorScheme),
       darkTheme: _buildTheme(_darkColorScheme),
       themeMode: ThemeMode.system,
