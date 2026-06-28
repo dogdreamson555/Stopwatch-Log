@@ -111,6 +111,7 @@ class TimerNotifier extends Notifier<TimerState> {
   TimerState _latestState = const TimerState();
   int _persistVersion = 0;
   Future<void> _pendingPersist = Future.value();
+  Future<void> _restoreFuture = Future.value();
   Future<TimerSession>? _pendingStop;
 
   Duration get _currentElapsed => _baseElapsed + _stopwatch.elapsed;
@@ -126,7 +127,8 @@ class TimerNotifier extends Notifier<TimerState> {
       _ticker?.cancel();
       unawaited(_persistLatestSnapshotOnDispose());
     });
-    unawaited(_restoreDraft());
+    _restoreFuture = _restoreDraft();
+    unawaited(_restoreFuture);
     return _latestState;
   }
 
@@ -236,6 +238,12 @@ class TimerNotifier extends Notifier<TimerState> {
       state = state.copyWith(elapsed: _currentElapsed);
     }
     return _persistDraft(force: true);
+  }
+
+  Future<bool> prepareForDataImport() async {
+    await _restoreFuture;
+    await _pendingPersist;
+    return !state.isActive;
   }
 
   void _startTicker() {

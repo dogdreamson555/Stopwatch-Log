@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
+import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
-import '../theme/app_typography.dart';
+import 'stopwatch_colon.dart';
 
 /// 时间显示组件：HH : MM : SS 格式，带中文标注
 class TimeDisplay extends ConsumerWidget {
@@ -15,6 +17,7 @@ class TimeDisplay extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final elapsed = ref.watch(timerProvider.select((s) => s.elapsed));
     final showSeconds = ref.watch(timerProvider.select((s) => s.showSeconds));
+    final displaySettings = ref.watch(stopwatchDisplaySettingsProvider);
 
     final hours = elapsed.inHours;
     final minutes = elapsed.inMinutes.remainder(60);
@@ -22,28 +25,39 @@ class TimeDisplay extends ConsumerWidget {
 
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTimeBlock(hours.toString().padLeft(2, '0'), '小时', cs, scale),
-            _Colon(cs: cs, scale: scale),
-            _buildTimeBlock(
-              minutes.toString().padLeft(2, '0'),
-              '分钟',
-              cs,
-              scale,
-            ),
-            if (showSeconds) ...[
-              _Colon(cs: cs, scale: scale),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               _buildTimeBlock(
-                seconds.toString().padLeft(2, '0'),
-                '秒',
+                hours.toString().padLeft(2, '0'),
+                context.l10n.hours,
                 cs,
                 scale,
+                displaySettings,
               ),
+              _Colon(cs: cs, scale: scale, displaySettings: displaySettings),
+              _buildTimeBlock(
+                minutes.toString().padLeft(2, '0'),
+                context.l10n.minutes,
+                cs,
+                scale,
+                displaySettings,
+              ),
+              if (showSeconds) ...[
+                _Colon(cs: cs, scale: scale, displaySettings: displaySettings),
+                _buildTimeBlock(
+                  seconds.toString().padLeft(2, '0'),
+                  context.l10n.seconds,
+                  cs,
+                  scale,
+                  displaySettings,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ],
     );
@@ -54,15 +68,18 @@ class TimeDisplay extends ConsumerWidget {
     String label,
     ColorScheme cs,
     double scale,
+    StopwatchSettings displaySettings,
   ) {
     final labelSlotHeight = 25.0 * scale;
+    final fontPreset = displaySettings.effectiveFontPreset;
 
     return Column(
       children: [
         Text(
           value,
-          style: AppTypography.display(
-            fontSize: 56 * scale,
+          style: fontPreset.textStyle(
+            customFontFamily: displaySettings.effectiveCustomFontFamily,
+            fontSize: 56 * scale * displaySettings.digitScale,
             fontWeight: FontWeight.w400,
             color: cs.onSurface,
             height: 1,
@@ -87,43 +104,29 @@ class TimeDisplay extends ConsumerWidget {
 class _Colon extends StatelessWidget {
   final ColorScheme cs;
   final double scale;
+  final StopwatchSettings displaySettings;
 
-  const _Colon({required this.cs, required this.scale});
+  const _Colon({
+    required this.cs,
+    required this.scale,
+    required this.displaySettings,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final digitHeight = 56 * scale * displaySettings.digitScale;
+    final colonWidth = 18 * scale * displaySettings.colonScale;
+
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 5 * scale),
-      child: SizedBox(
-        width: 8 * scale,
-        height: 56 * scale,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _SeparatorDot(cs: cs, scale: scale),
-            SizedBox(height: 13 * scale),
-            _SeparatorDot(cs: cs, scale: scale),
-          ],
-        ),
+      padding: EdgeInsets.symmetric(
+        horizontal: displaySettings.separatorSpacing * scale,
       ),
-    );
-  }
-}
-
-class _SeparatorDot extends StatelessWidget {
-  final ColorScheme cs;
-  final double scale;
-
-  const _SeparatorDot({required this.cs, required this.scale});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 7 * scale,
-      height: 7 * scale,
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.7),
-        shape: BoxShape.circle,
+      child: StopwatchColon(
+        width: colonWidth,
+        height: digitHeight,
+        baseSize: 56 * scale,
+        colonScale: displaySettings.colonScale,
+        color: cs.onSurface.withValues(alpha: 0.72),
       ),
     );
   }

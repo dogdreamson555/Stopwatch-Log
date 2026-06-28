@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/timer_session.dart';
 import '../providers/session_archive_provider.dart';
 import '../theme/app_typography.dart';
@@ -15,16 +15,20 @@ class HistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionsAsync = ref.watch(sessionArchiveProvider);
     final cs = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('历史记录')),
+      appBar: AppBar(title: Text(l10n.history)),
       body: sessionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
-          child: Text('加载失败: $err', style: TextStyle(color: cs.error)),
+          child: Text(
+            '${l10n.loadFailed}: $err',
+            style: TextStyle(color: cs.error),
+          ),
         ),
         data: (sessions) => sessions.isEmpty
-            ? _buildEmptyState(cs)
+            ? _buildEmptyState(cs, l10n)
             : ListView.builder(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -37,7 +41,7 @@ class HistoryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(ColorScheme cs) {
+  Widget _buildEmptyState(ColorScheme cs, AppLocalizations l10n) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -49,7 +53,7 @@ class HistoryScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            '还没有计时记录',
+            l10n.noHistory,
             style: TextStyle(
               color: cs.onSurface.withValues(alpha: 0.4),
               fontSize: 16,
@@ -57,7 +61,7 @@ class HistoryScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '开始第一次专注计时吧',
+            l10n.startFirstSession,
             style: TextStyle(
               color: cs.onSurface.withValues(alpha: 0.2),
               fontSize: 13,
@@ -89,7 +93,10 @@ class _SessionCardState extends ConsumerState<_SessionCard> {
   Widget build(BuildContext context) {
     final s = widget.session;
     final cs = Theme.of(context).colorScheme;
-    final dateStr = DateFormat('M月d日  HH:mm').format(s.date);
+    final material = MaterialLocalizations.of(context);
+    final dateStr =
+        '${material.formatMediumDate(s.date)}  '
+        '${material.formatTimeOfDay(TimeOfDay.fromDateTime(s.date), alwaysUse24HourFormat: true)}';
     final durationStr = _fmtDuration(s.totalElapsed);
 
     return Dismissible(
@@ -109,7 +116,10 @@ class _SessionCardState extends ConsumerState<_SessionCard> {
         await ref.read(sessionArchiveProvider.notifier).deleteSession(s.id);
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已删除'), duration: Duration(seconds: 2)),
+          SnackBar(
+            content: Text(context.l10n.deleted),
+            duration: const Duration(seconds: 2),
+          ),
         );
       },
       child: GestureDetector(
@@ -192,7 +202,9 @@ class _SessionCardState extends ConsumerState<_SessionCard> {
                 bottom: 0,
                 width: 56,
                 child: Tooltip(
-                  message: _expanded ? '收起摘要' : '展开摘要',
+                  message: _expanded
+                      ? context.l10n.collapseSummary
+                      : context.l10n.expandSummary,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _toggleExpanded,
@@ -234,7 +246,7 @@ class _SessionCardState extends ConsumerState<_SessionCard> {
           // 总结
           if (s.summary.isNotEmpty) ...[
             Text(
-              '📝 总结',
+              context.l10n.summary,
               style: TextStyle(
                 color: cs.onSurface.withValues(alpha: 0.4),
                 fontSize: 11,
@@ -250,7 +262,7 @@ class _SessionCardState extends ConsumerState<_SessionCard> {
             ),
           ] else ...[
             Text(
-              '（未填写总结）',
+              context.l10n.noSummary,
               style: TextStyle(
                 color: cs.onSurface.withValues(alpha: 0.25),
                 fontSize: 12,
@@ -263,7 +275,7 @@ class _SessionCardState extends ConsumerState<_SessionCard> {
           if (s.points.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              '🚩 打点 (${s.points.length})',
+              context.l10n.pointsCount(s.points.length),
               style: TextStyle(
                 color: cs.onSurface.withValues(alpha: 0.4),
                 fontSize: 11,
@@ -302,7 +314,7 @@ class _SessionCardState extends ConsumerState<_SessionCard> {
                 ),
             if (s.points.length > 3)
               Text(
-                '... 还有 ${s.points.length - 3} 条',
+                context.l10n.morePoints(s.points.length - 3),
                 style: TextStyle(
                   color: cs.onSurface.withValues(alpha: 0.25),
                   fontSize: 11,

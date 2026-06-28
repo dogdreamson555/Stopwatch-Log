@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../l10n/app_localizations.dart';
+import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/ui_provider.dart';
 import '../services/window_service.dart';
-import '../theme/app_typography.dart';
+import 'stopwatch_colon.dart';
 import 'window_close_button.dart';
 
 /// 悬浮模式下的紧凑计时器 UI
@@ -22,6 +24,7 @@ class FloatingTimer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timerState = ref.watch(timerProvider);
+    final displaySettings = ref.watch(stopwatchDisplaySettingsProvider);
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -57,6 +60,7 @@ class FloatingTimer extends ConsumerWidget {
                             elapsed: timerState.elapsed,
                             showSeconds: timerState.showSeconds,
                             scale: scale,
+                            displaySettings: displaySettings,
                           ),
                           SizedBox(height: 10 * scale),
                           _FloatingActions(
@@ -116,7 +120,7 @@ class _FloatingTitleBar extends StatelessWidget {
         children: [
           WindowControlButton(
             icon: Icons.open_in_full_rounded,
-            tooltip: '退出悬浮窗',
+            tooltip: context.l10n.exitFloating,
             size: 28,
             iconSize: 15,
             compact: true,
@@ -147,11 +151,13 @@ class _FloatingTimeDisplay extends StatelessWidget {
   final Duration elapsed;
   final bool showSeconds;
   final double scale;
+  final StopwatchSettings displaySettings;
 
   const _FloatingTimeDisplay({
     required this.elapsed,
     required this.showSeconds,
     required this.scale,
+    required this.displaySettings,
   });
 
   @override
@@ -161,30 +167,43 @@ class _FloatingTimeDisplay extends StatelessWidget {
     final minutes = elapsed.inMinutes.remainder(60);
     final seconds = elapsed.inSeconds.remainder(60);
     final parts = [
-      _TimePart(hours.toString().padLeft(2, '0'), '小时'),
-      _TimePart(minutes.toString().padLeft(2, '0'), '分钟'),
-      if (showSeconds) _TimePart(seconds.toString().padLeft(2, '0'), '秒'),
+      _TimePart(hours.toString().padLeft(2, '0'), context.l10n.hours),
+      _TimePart(minutes.toString().padLeft(2, '0'), context.l10n.minutes),
+      if (showSeconds)
+        _TimePart(seconds.toString().padLeft(2, '0'), context.l10n.seconds),
     ];
     final timeScale = _FloatingMetrics.timeScaleFor(scale);
-    final fontSize = (showSeconds ? 34.0 : 48.0) * timeScale;
-    final blockWidth = (showSeconds ? 49.0 : 66.0) * scale;
+    final baseFontSize = (showSeconds ? 34.0 : 48.0) * timeScale;
+    final fontSize = baseFontSize * displaySettings.digitScale;
+    final blockWidth =
+        (showSeconds ? 49.0 : 66.0) * scale * displaySettings.digitScale;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < parts.length; i++) ...[
-          _FloatingTimeBlock(
-            value: parts[i].value,
-            label: parts[i].label,
-            width: blockWidth,
-            fontSize: fontSize,
-            scale: scale,
-          ),
-          if (i < parts.length - 1)
-            _FloatingSeparator(height: fontSize, scale: timeScale, cs: cs),
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < parts.length; i++) ...[
+            _FloatingTimeBlock(
+              value: parts[i].value,
+              label: parts[i].label,
+              width: blockWidth,
+              fontSize: fontSize,
+              scale: scale,
+              displaySettings: displaySettings,
+            ),
+            if (i < parts.length - 1)
+              _FloatingSeparator(
+                height: fontSize,
+                baseSize: baseFontSize,
+                scale: timeScale,
+                cs: cs,
+                displaySettings: displaySettings,
+              ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -195,6 +214,7 @@ class _FloatingTimeBlock extends StatelessWidget {
   final double width;
   final double fontSize;
   final double scale;
+  final StopwatchSettings displaySettings;
 
   const _FloatingTimeBlock({
     required this.value,
@@ -202,25 +222,34 @@ class _FloatingTimeBlock extends StatelessWidget {
     required this.width,
     required this.fontSize,
     required this.scale,
+    required this.displaySettings,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final fontPreset = displaySettings.effectiveFontPreset;
 
     return SizedBox(
       width: width,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            value,
-            maxLines: 1,
-            style: AppTypography.display(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface.withValues(alpha: 0.74),
-              height: 1,
+          SizedBox(
+            height: fontSize,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: fontPreset.textStyle(
+                  customFontFamily: displaySettings.effectiveCustomFontFamily,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface.withValues(alpha: 0.74),
+                  height: 1,
+                ),
+              ),
             ),
           ),
           SizedBox(height: 6 * scale),
@@ -241,49 +270,31 @@ class _FloatingTimeBlock extends StatelessWidget {
 
 class _FloatingSeparator extends StatelessWidget {
   final double height;
+  final double baseSize;
   final double scale;
   final ColorScheme cs;
+  final StopwatchSettings displaySettings;
 
   const _FloatingSeparator({
     required this.height,
+    required this.baseSize,
     required this.scale,
     required this.cs,
+    required this.displaySettings,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 2 * scale),
-      child: SizedBox(
-        width: 8 * scale,
-        height: height,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _SeparatorDot(scale: scale, cs: cs),
-            SizedBox(height: height * 0.16),
-            _SeparatorDot(scale: scale, cs: cs),
-          ],
-        ),
+      padding: EdgeInsets.symmetric(
+        horizontal: displaySettings.separatorSpacing * scale,
       ),
-    );
-  }
-}
-
-class _SeparatorDot extends StatelessWidget {
-  final double scale;
-  final ColorScheme cs;
-
-  const _SeparatorDot({required this.scale, required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 4.5 * scale,
-      height: 4.5 * scale,
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.44),
-        shape: BoxShape.circle,
+      child: StopwatchColon(
+        width: 10 * scale * displaySettings.colonScale,
+        height: height,
+        baseSize: baseSize,
+        colonScale: displaySettings.colonScale,
+        color: cs.onSurface.withValues(alpha: 0.52),
       ),
     );
   }
@@ -319,7 +330,7 @@ class _FloatingActions extends StatelessWidget {
       TimerStatus.idle => [
         _RoundActionButton(
           icon: Icons.play_arrow_rounded,
-          tooltip: '开始',
+          tooltip: context.l10n.start,
           color: cs.primary,
           size: buttonSize,
           iconSize: primaryIconSize,
@@ -329,7 +340,7 @@ class _FloatingActions extends StatelessWidget {
       TimerStatus.running => [
         _RoundActionButton(
           icon: Icons.pause_rounded,
-          tooltip: '暂停',
+          tooltip: context.l10n.pause,
           color: cs.tertiary,
           size: buttonSize,
           iconSize: primaryIconSize,
@@ -338,7 +349,7 @@ class _FloatingActions extends StatelessWidget {
         SizedBox(width: buttonGap),
         _RoundActionButton(
           icon: Icons.bookmark_add_rounded,
-          tooltip: '打点',
+          tooltip: context.l10n.markPoint,
           color: cs.secondary,
           emphasized: false,
           size: buttonSize,
@@ -349,7 +360,7 @@ class _FloatingActions extends StatelessWidget {
       TimerStatus.paused => [
         _RoundActionButton(
           icon: Icons.play_arrow_rounded,
-          tooltip: '继续',
+          tooltip: context.l10n.resume,
           color: cs.primary,
           size: buttonSize,
           iconSize: primaryIconSize,
@@ -358,7 +369,7 @@ class _FloatingActions extends StatelessWidget {
         SizedBox(width: buttonGap),
         _RoundActionButton(
           icon: Icons.stop_rounded,
-          tooltip: '结束',
+          tooltip: context.l10n.finish,
           color: cs.error,
           size: buttonSize,
           iconSize: primaryIconSize,

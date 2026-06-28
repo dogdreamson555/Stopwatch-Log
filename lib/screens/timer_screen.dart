@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/timer_provider.dart';
 import '../providers/ui_provider.dart';
 import '../services/window_service.dart';
@@ -13,6 +14,7 @@ import '../widgets/timer_controls.dart';
 import '../widgets/window_close_button.dart';
 import 'history_screen.dart';
 import 'review_screen.dart';
+import 'settings_screen.dart';
 
 /// 计时器主屏幕
 class TimerScreen extends ConsumerWidget {
@@ -42,7 +44,7 @@ class TimerScreen extends ConsumerWidget {
                         // 悬浮模式按钮
                         WindowControlButton(
                           icon: Icons.picture_in_picture_alt,
-                          tooltip: '切换到悬浮窗',
+                          tooltip: context.l10n.switchToFloating,
                           iconSize: 18,
                           onTap: () async {
                             final floatingMode = ref.read(
@@ -61,11 +63,23 @@ class TimerScreen extends ConsumerWidget {
                         // 历史记录按钮
                         WindowControlButton(
                           icon: Icons.history_rounded,
-                          tooltip: '历史记录',
+                          tooltip: context.l10n.history,
                           iconSize: 19,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const HistoryScreen(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // 设置按钮
+                        WindowControlButton(
+                          icon: Icons.settings_outlined,
+                          tooltip: context.l10n.settings,
+                          iconSize: 19,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsScreen(),
                             ),
                           ),
                         ),
@@ -124,7 +138,7 @@ class TimerScreen extends ConsumerWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 _ToggleChip(
-                                  label: '秒',
+                                  label: context.l10n.seconds,
                                   value: timerState.showSeconds,
                                   onChanged: (_) => ref
                                       .read(timerProvider.notifier)

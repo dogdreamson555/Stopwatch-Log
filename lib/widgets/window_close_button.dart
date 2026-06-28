@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/window_service.dart';
 
 class WindowControlButton extends StatelessWidget {
@@ -73,7 +74,7 @@ class WindowMinimizeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return WindowControlButton(
       icon: Icons.minimize_rounded,
-      tooltip: '最小化',
+      tooltip: context.l10n.minimize,
       onTap: WindowService.minimizeWindow,
       size: size,
       iconSize: iconSize,
@@ -98,7 +99,7 @@ class WindowMaximizeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return WindowControlButton(
       icon: Icons.crop_square_rounded,
-      tooltip: '最大化/还原',
+      tooltip: context.l10n.maximizeRestore,
       onTap: WindowService.toggleMaximizeWindow,
       size: size,
       iconSize: iconSize,
@@ -124,7 +125,7 @@ class WindowCloseButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return WindowControlButton(
       icon: Icons.close_rounded,
-      tooltip: '关闭应用',
+      tooltip: context.l10n.closeApp,
       onTap: WindowService.closeWindow,
       size: size,
       iconSize: iconSize,
