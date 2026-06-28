@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag, for example v1.0.0'
+        description: 'Release tag to create/update from the selected ref, for example v1.0.0'
         required: true
         default: 'v1.0.0'
 
@@ -28,12 +28,15 @@ jobs:
           } else {
             $tag = "${{ github.ref_name }}"
           }
+          if ([string]::IsNullOrWhiteSpace($tag) -or -not $tag.StartsWith("v")) {
+            Write-Error "Release tag must start with v, for example v1.0.0. Got '$tag'."
+            exit 1
+          }
           echo "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+          echo "RELEASE_TARGET=${{ github.sha }}" >> $env:GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -49,7 +52,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyze
-        run: dart analyze
+        run: flutter analyze
 
       - name: Test
         run: flutter test
@@ -62,6 +65,10 @@ jobs:
         run: |
           $releaseDir = "build/windows/x64/runner/Release"
           $zip = "Stopwatch-Log-$env:RELEASE_TAG-windows-x64.zip"
+          if (-not (Test-Path "$releaseDir/stopwatch_log.exe")) {
+            Write-Error "Windows release executable was not found at $releaseDir/stopwatch_log.exe."
+            exit 1
+          }
           $guide = @"
           Stopwatch Log $env:RELEASE_TAG
 
@@ -76,6 +83,10 @@ jobs:
 
           $guide | Out-File -FilePath "$releaseDir/README.txt" -Encoding utf8
           Compress-Archive -Path "$releaseDir/*" -DestinationPath $zip -Force
+          if (-not (Test-Path $zip)) {
+            Write-Error "Windows release archive was not created at $zip."
+            exit 1
+          }
           echo "ZIP_NAME=$zip" >> $env:GITHUB_ENV
 
       - name: Publish GitHub Release
@@ -93,6 +104,11 @@ jobs:
           请保持 exe、data 文件夹和 DLL 文件在同一目录。
           "@
 
+          if (-not (Test-Path $asset)) {
+            Write-Error "Release asset was not found at $asset."
+            exit 1
+          }
+
           $releaseTagsJson = gh release list --limit 1000 --json tagName
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
@@ -102,7 +118,16 @@ jobs:
 
           if ($releaseExists) {
             gh release edit $tag --title $title --notes $notes
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
             gh release upload $tag $asset --clobber
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
           } else {
-            gh release create $tag $asset --title $title --notes $notes
+            gh release create $tag $asset --title $title --notes $notes --target "$env:RELEASE_TARGET"
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
           }
