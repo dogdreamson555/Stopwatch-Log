@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../l10n/app_language.dart';
 import '../l10n/app_localizations.dart';
@@ -33,7 +34,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final settingsNotifier = ref.read(stopwatchSettingsProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.settings)),
+      appBar: AppBar(title: _DraggableAppBarTitle(title: l10n.settings)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -284,6 +285,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
+class _DraggableAppBarTitle extends StatelessWidget {
+  final String title;
+
+  const _DraggableAppBarTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) => windowManager.startDragging(),
+      child: SizedBox(
+        width: double.infinity,
+        height: kToolbarHeight,
+        child: Align(alignment: Alignment.centerLeft, child: Text(title)),
+      ),
+    );
+  }
+}
+
 class _SettingsSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
@@ -336,33 +356,54 @@ class _LanguageTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return ListTile(
-      leading: Icon(
-        Icons.translate_rounded,
-        color: cs.primary.withValues(alpha: 0.82),
-      ),
-      title: Text(context.l10n.language),
-      subtitle: Text(
-        language.nativeName,
-        style: TextStyle(color: cs.onSurface.withValues(alpha: 0.48)),
-      ),
-      trailing: PopupMenuButton<AppLanguage>(
-        initialValue: language,
+    return Builder(
+      builder: (tileContext) => ListTile(
         enabled: !isLoading,
-        tooltip: context.l10n.language,
-        icon: const Icon(Icons.arrow_drop_down_rounded),
-        onSelected: onChanged,
-        itemBuilder: (context) => [
-          for (final option in AppLanguage.values)
-            CheckedPopupMenuItem(
-              value: option,
-              checked: option == language,
-              child: Text(option.nativeName),
-            ),
-        ],
+        onTap: isLoading ? null : () => _showLanguageMenu(tileContext),
+        leading: Icon(
+          Icons.translate_rounded,
+          color: cs.primary.withValues(alpha: 0.82),
+        ),
+        title: Text(context.l10n.language),
+        subtitle: Text(
+          language.nativeName,
+          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.48)),
+        ),
+        trailing: const Icon(Icons.arrow_drop_down_rounded),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
+  }
+
+  Future<void> _showLanguageMenu(BuildContext context) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final tile = context.findRenderObject() as RenderBox;
+    final tileTopLeft = tile.localToGlobal(Offset.zero, ancestor: overlay);
+    const trailingPadding = 16.0;
+    const trailingWidth = 24.0;
+    final anchorRight = tileTopLeft.dx + tile.size.width - trailingPadding;
+    final anchorLeft = anchorRight - trailingWidth;
+    final anchorTop = tileTopLeft.dy + tile.size.height;
+
+    final selected = await showMenu<AppLanguage>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        anchorLeft,
+        anchorTop,
+        overlay.size.width - anchorRight,
+        overlay.size.height - anchorTop,
+      ),
+      items: [
+        for (final option in AppLanguage.values)
+          CheckedPopupMenuItem(
+            value: option,
+            checked: option == language,
+            child: Text(option.nativeName),
+          ),
+      ],
+    );
+    if (!context.mounted || selected == null) return;
+    onChanged(selected);
   }
 }
 
@@ -560,7 +601,7 @@ class _SliderTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
         children: [
           Icon(icon, color: cs.onSurface.withValues(alpha: 0.44)),
@@ -589,13 +630,17 @@ class _SliderTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                Slider(
-                  value: value.clamp(min, max).toDouble(),
-                  min: min,
-                  max: max,
-                  divisions: divisions,
-                  label: valueLabel,
-                  onChanged: onChanged,
+                const SizedBox(height: 2),
+                SizedBox(
+                  height: 32,
+                  child: Slider(
+                    value: value.clamp(min, max).toDouble(),
+                    min: min,
+                    max: max,
+                    divisions: divisions,
+                    label: valueLabel,
+                    onChanged: onChanged,
+                  ),
                 ),
               ],
             ),

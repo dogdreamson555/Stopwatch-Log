@@ -14,18 +14,10 @@ enum StopwatchFontPreset {
   const StopwatchFontPreset(this.id);
 
   static const defaultPreset = segoeDisplay;
-  static const builtInPresets = [
-    segoeDisplay,
-    cascadiaMono,
-    consolas,
-    bahnschrift,
-  ];
+  static const builtInPresets = [segoeDisplay];
 
   static StopwatchFontPreset fromId(String? id) {
-    return values.firstWhere(
-      (preset) => preset.id == id,
-      orElse: () => defaultPreset,
-    );
+    return id == custom.id ? custom : defaultPreset;
   }
 
   String get label => switch (this) {
