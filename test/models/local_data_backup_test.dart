@@ -34,7 +34,7 @@ void main() {
     expect(restored.settings['app_language'], 'en');
   });
 
-  test('rejects unsupported versions and dangling points', () {
+  test('rejects unsupported backup versions', () {
     final unsupported = '''
       {
         "application": "stopwatch_log",
@@ -50,8 +50,10 @@ void main() {
       () => LocalDataBackup.fromJsonString(unsupported),
       throwsFormatException,
     );
+  });
 
-    final danglingPoint = '''
+  test('recovers missing sessions from legacy exported point rows', () {
+    final legacyExport = '''
       {
         "application": "stopwatch_log",
         "formatVersion": 1,
@@ -64,15 +66,26 @@ void main() {
             "elapsedAtMs": 1000,
             "createdAt": "2026-06-24T12:00:01.000Z",
             "note": ""
+          },
+          {
+            "id": "point-2",
+            "sessionId": "missing-session",
+            "elapsedAtMs": 2500,
+            "createdAt": "2026-06-24T12:00:03.000Z",
+            "note": "later"
           }
         ],
         "settings": {},
         "currentTimerState": null
       }
     ''';
-    expect(
-      () => LocalDataBackup.fromJsonString(danglingPoint),
-      throwsFormatException,
-    );
+
+    final restored = LocalDataBackup.fromJsonString(legacyExport);
+
+    expect(restored.sessions, hasLength(1));
+    expect(restored.sessions.single.id, 'missing-session');
+    expect(restored.sessions.single.date, DateTime.utc(2026, 6, 24, 12, 0, 1));
+    expect(restored.sessions.single.totalElapsedMs, 2500);
+    expect(restored.points, hasLength(2));
   });
 }

@@ -18,6 +18,26 @@ class LocalDataBackup {
     required this.currentTimerState,
   });
 
+  factory LocalDataBackup.normalized({
+    required DateTime exportedAt,
+    required List<LocalDataSession> sessions,
+    required List<LocalDataPoint> points,
+    required Map<String, String> settings,
+    required Map<String, dynamic>? currentTimerState,
+  }) {
+    final backup = LocalDataBackup(
+      exportedAt: exportedAt,
+      sessions: _recoverMissingPointSessions(sessions, points),
+      points: points.toList(growable: false),
+      settings: Map.unmodifiable(settings),
+      currentTimerState: currentTimerState == null
+          ? null
+          : Map.unmodifiable(currentTimerState),
+    );
+    backup._validateRelations();
+    return backup;
+  }
+
   Map<String, dynamic> toJson() => {
     'application': applicationId,
     'formatVersion': currentFormatVersion,
@@ -73,7 +93,7 @@ class LocalDataBackup {
       _validateCurrentTimerState(currentTimerState);
     }
 
-    final backup = LocalDataBackup(
+    final backup = LocalDataBackup.normalized(
       exportedAt: _requiredDateTime(json, 'exportedAt'),
       sessions: sessions,
       points: points,
@@ -82,7 +102,6 @@ class LocalDataBackup {
           ? null
           : Map.unmodifiable(currentTimerState),
     );
-    backup._validateRelations();
     return backup;
   }
 
@@ -104,6 +123,40 @@ class LocalDataBackup {
       }
     }
   }
+}
+
+List<LocalDataSession> _recoverMissingPointSessions(
+  List<LocalDataSession> sessions,
+  List<LocalDataPoint> points,
+) {
+  final sessionIds = sessions.map((session) => session.id).toSet();
+  final missingGroups = <String, List<LocalDataPoint>>{};
+  for (final point in points) {
+    if (sessionIds.contains(point.sessionId)) continue;
+    (missingGroups[point.sessionId] ??= <LocalDataPoint>[]).add(point);
+  }
+
+  if (missingGroups.isEmpty) return sessions.toList(growable: false);
+
+  final recoveredSessions = missingGroups.entries.map((entry) {
+    final points = entry.value;
+    var date = points.first.createdAt;
+    var totalElapsedMs = points.first.elapsedAtMs;
+    for (final point in points.skip(1)) {
+      if (point.createdAt.isBefore(date)) date = point.createdAt;
+      if (point.elapsedAtMs > totalElapsedMs) {
+        totalElapsedMs = point.elapsedAtMs;
+      }
+    }
+    return LocalDataSession(
+      id: entry.key,
+      date: date,
+      totalElapsedMs: totalElapsedMs,
+      summary: '',
+    );
+  });
+
+  return [...sessions, ...recoveredSessions];
 }
 
 class LocalDataSession {

@@ -201,7 +201,7 @@ class AppDatabase extends _$AppDatabase {
         currentTimerState = decoded;
       }
 
-      return LocalDataBackup(
+      return LocalDataBackup.normalized(
         exportedAt: DateTime.now(),
         sessions: sessionRows
             .map(

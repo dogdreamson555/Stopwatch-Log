@@ -76,6 +76,50 @@ void main() {
     );
   });
 
+  test('exports legacy orphan points with recovered sessions', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await db.customStatement('PRAGMA foreign_keys = OFF');
+    await db.insertPoints([
+      PointsCompanion.insert(
+        id: 'orphan-point-1',
+        sessionId: 'legacy-session',
+        elapsedAtMs: 1000,
+        createdAt: DateTime.utc(2026, 6, 25, 12),
+      ),
+      PointsCompanion.insert(
+        id: 'orphan-point-2',
+        sessionId: 'legacy-session',
+        elapsedAtMs: 2500,
+        createdAt: DateTime.utc(2026, 6, 25, 12, 0, 3),
+        note: const Value('later'),
+      ),
+    ]);
+    await db.customStatement('PRAGMA foreign_keys = ON');
+
+    final backup = await db.createLocalDataBackup();
+
+    expect(backup.sessions, hasLength(1));
+    expect(backup.sessions.single.id, 'legacy-session');
+    expect(backup.sessions.single.date.toUtc(), DateTime.utc(2026, 6, 25, 12));
+    expect(backup.sessions.single.totalElapsedMs, 2500);
+
+    await db.replaceLocalData(
+      LocalDataBackup(
+        exportedAt: DateTime.now(),
+        sessions: const [],
+        points: const [],
+        settings: const {},
+        currentTimerState: null,
+      ),
+    );
+    final parsed = LocalDataBackup.fromJsonString(backup.toJsonString());
+    await db.replaceLocalData(parsed);
+
+    expect((await db.allSessions()).single.id, 'legacy-session');
+    expect((await db.pointsForSession('legacy-session')), hasLength(2));
+  });
   test('rolls back the whole import when a database write fails', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
