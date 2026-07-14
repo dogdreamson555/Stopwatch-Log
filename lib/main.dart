@@ -24,7 +24,7 @@ final _lightColorScheme = ColorScheme.fromSeed(
   secondary: const Color(0xFF43A047),
   tertiary: const Color(0xFFEF6C00),
   error: const Color(0xFFD32F2F),
-  surface: const Color(0xFFF8F9FA),
+  surface: const Color(0xFFFFFFFF),
 );
 
 final _darkColorScheme = ColorScheme.fromSeed(
