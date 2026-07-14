@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
+import 'stable_digit_text.dart';
 import 'stopwatch_colon.dart';
 
 /// 时间显示组件：HH : MM : SS 格式，带中文标注
@@ -72,19 +73,17 @@ class TimeDisplay extends ConsumerWidget {
   ) {
     final labelSlotHeight = 25.0 * scale;
     final fontPreset = displaySettings.effectiveFontPreset;
+    final digitStyle = fontPreset.textStyle(
+      customFontFamily: displaySettings.effectiveCustomFontFamily,
+      fontSize: 56 * scale * displaySettings.digitScale,
+      fontWeight: FontWeight.w400,
+      color: cs.onSurface,
+      height: 1,
+    );
 
     return Column(
       children: [
-        Text(
-          value,
-          style: fontPreset.textStyle(
-            customFontFamily: displaySettings.effectiveCustomFontFamily,
-            fontSize: 56 * scale * displaySettings.digitScale,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurface,
-            height: 1,
-          ),
-        ),
+        StableDigitText(value: value, style: digitStyle),
         if (label.isNotEmpty) ...[
           SizedBox(height: 6 * scale),
           Text(
