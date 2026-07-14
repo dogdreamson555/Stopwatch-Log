@@ -9,6 +9,7 @@ import '../providers/settings_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/ui_provider.dart';
 import '../services/window_service.dart';
+import 'stable_digit_text.dart';
 import 'stopwatch_colon.dart';
 import 'window_close_button.dart';
 
@@ -229,6 +230,15 @@ class _FloatingTimeBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final fontPreset = displaySettings.effectiveFontPreset;
+    final digitStyle = fontPreset.textStyle(
+      customFontFamily: displaySettings.effectiveCustomFontFamily,
+      fontSize: fontSize,
+      fontWeight: FontWeight.w400,
+      color: cs.brightness == Brightness.light
+          ? const Color(0xFF000000)
+          : cs.onSurface.withValues(alpha: 0.74),
+      height: 1,
+    );
 
     return SizedBox(
       width: width,
@@ -239,17 +249,7 @@ class _FloatingTimeBlock extends StatelessWidget {
             height: fontSize,
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                maxLines: 1,
-                style: fontPreset.textStyle(
-                  customFontFamily: displaySettings.effectiveCustomFontFamily,
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface.withValues(alpha: 0.74),
-                  height: 1,
-                ),
-              ),
+              child: StableDigitText(value: value, style: digitStyle),
             ),
           ),
           SizedBox(height: 6 * scale),
