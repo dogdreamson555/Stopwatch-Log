@@ -234,7 +234,9 @@ class _FloatingTimeBlock extends StatelessWidget {
       customFontFamily: displaySettings.effectiveCustomFontFamily,
       fontSize: fontSize,
       fontWeight: FontWeight.w400,
-      color: cs.onSurface.withValues(alpha: 0.74),
+      color: cs.brightness == Brightness.light
+          ? const Color(0xFF000000)
+          : cs.onSurface.withValues(alpha: 0.74),
       height: 1,
     );
 
